@@ -365,11 +365,17 @@ class DiplomacyManager() {
 
         if (!civInfo.isDefeated()) { // don't display city state relationship notifications when the city state is currently defeated
             val civCapitalLocation = if (civInfo.cities.isNotEmpty()) civInfo.getCapital().location else null
-            if (getTurnsToRelationshipChange() == 1)
-                otherCiv().addNotification("Your relationship with [${civInfo.civName}] is about to degrade", civCapitalLocation, Color.GOLD)
+            if (getTurnsToRelationshipChange() == 1){
+                val text = "Your relationship with [${civInfo.civName}] is about to degrade"
+                if(civCapitalLocation!=null) otherCiv().addNotification(text, civCapitalLocation, civInfo.civName, NotificationIcon.Diplomacy)
+                else otherCiv().addNotification(text, civInfo.civName, NotificationIcon.Diplomacy)
+            }
 
-            if (initialRelationshipLevel >= RelationshipLevel.Friend && initialRelationshipLevel != relationshipLevel())
-                otherCiv().addNotification("Your relationship with [${civInfo.civName}] degraded", civCapitalLocation, Color.GOLD)
+            if (initialRelationshipLevel >= RelationshipLevel.Friend && initialRelationshipLevel != relationshipLevel()){
+                val text = "Your relationship with [${civInfo.civName}] degraded"
+                if(civCapitalLocation!=null) otherCiv().addNotification(text, civCapitalLocation, civInfo.civName, NotificationIcon.Diplomacy)
+                else otherCiv().addNotification(text, civInfo.civName, NotificationIcon.Diplomacy)
+            }
         }
     }
 
@@ -417,8 +423,8 @@ class DiplomacyManager() {
                 trades.remove(trade)
                 for (offer in trade.ourOffers.union(trade.theirOffers).filter { it.duration == 0 }) { // this was a timed trade
                     if (offer in trade.theirOffers)
-                        civInfo.addNotification("[${offer.name}] from [$otherCivName] has ended", NotificationIcon.Trade)
-                    else civInfo.addNotification("[${offer.name}] to [$otherCivName] has ended", NotificationIcon.Trade)
+                        civInfo.addNotification("[${offer.name}] from [$otherCivName] has ended", otherCivName, NotificationIcon.Trade)
+                    else civInfo.addNotification("[${offer.name}] to [$otherCivName] has ended", otherCivName, NotificationIcon.Trade)
 
                     civInfo.updateStatsForNextTurn() // if they were bringing us gold per turn
                     civInfo.updateDetailedCivResources() // if they were giving us resources
@@ -471,7 +477,7 @@ class DiplomacyManager() {
         // Cancel all trades.
         for (trade in trades)
             for (offer in trade.theirOffers.filter { it.duration > 0 })
-                civInfo.addNotification("[" + offer.name + "] from [$otherCivName] has ended", NotificationIcon.Trade)
+                civInfo.addNotification("[" + offer.name + "] from [$otherCivName] has ended", otherCivName, NotificationIcon.Trade)
         trades.clear()
         updateHasOpenBorders()
 
@@ -568,9 +574,8 @@ class DiplomacyManager() {
 
         for (civ in getCommonKnownCivs()) {
             civ.addNotification(
-                    "[${civInfo.civName}] and [${otherCiv().civName}] have signed a Peace Treaty!",
-                    null,
-                    Color.WHITE
+                    "[${civInfo.civName}] and [$otherCivName] have signed a Peace Treaty!",
+                    civInfo.civName, NotificationIcon.Diplomacy, otherCivName
             )
         }
     }
@@ -618,10 +623,12 @@ class DiplomacyManager() {
         setFlag(DiplomacyFlags.DeclarationOfFriendship, 30)
         otherCivDiplomacy().setFlag(DiplomacyFlags.DeclarationOfFriendship, 30)
         if (otherCiv().playerType == PlayerType.Human)
-            otherCiv().addNotification("[${civInfo.civName}] and [$otherCivName] have signed the Declaration of Friendship!", null, Color.WHITE)
+            otherCiv().addNotification("[${civInfo.civName}] and [$otherCivName] have signed the Declaration of Friendship!",
+                    civInfo.civName, NotificationIcon.Diplomacy, otherCivName)
 
         for (thirdCiv in getCommonKnownCivs().filter { it.isMajorCiv() }) {
-            thirdCiv.addNotification("[${civInfo.civName}] and [$otherCivName] have signed the Declaration of Friendship!", null, Color.WHITE)
+            thirdCiv.addNotification("[${civInfo.civName}] and [$otherCivName] have signed the Declaration of Friendship!",
+                    civInfo.civName, NotificationIcon.Diplomacy, otherCivName)
             thirdCiv.getDiplomacyManager(civInfo).setFriendshipBasedModifier()
         }
     }
@@ -647,11 +654,11 @@ class DiplomacyManager() {
         setFlag(DiplomacyFlags.Denunceation, 30)
         otherCivDiplomacy().setFlag(DiplomacyFlags.Denunceation, 30)
 
-        otherCiv().addNotification("[${civInfo.civName}] has denounced us!", Color.RED)
+        otherCiv().addNotification("[${civInfo.civName}] has denounced us!", NotificationIcon.Diplomacy, civInfo.civName)
 
         // We, A, are denouncing B. What do other major civs (C,D, etc) think of this?
         getCommonKnownCivs().filter { it.isMajorCiv() }.forEach { thirdCiv ->
-            thirdCiv.addNotification("[${civInfo.civName}] has denounced [${otherCiv().civName}]!", null, Color.RED)
+            thirdCiv.addNotification("[${civInfo.civName}] has denounced [$otherCivName]!", civInfo.civName, NotificationIcon.Diplomacy, otherCivName)
             val thirdCivRelationshipWithOtherCiv = thirdCiv.getDiplomacyManager(otherCiv()).relationshipLevel()
             when (thirdCivRelationshipWithOtherCiv) {
                 RelationshipLevel.Unforgivable -> addModifier(DiplomaticModifiers.DenouncedOurEnemies, 15f)
@@ -665,14 +672,14 @@ class DiplomacyManager() {
     fun agreeNotToSettleNear() {
         otherCivDiplomacy().setFlag(DiplomacyFlags.AgreedToNotSettleNearUs, 100)
         addModifier(DiplomaticModifiers.UnacceptableDemands, -10f)
-        otherCiv().addNotification("[${civInfo.civName}] agreed to stop settling cities near us!", Color.MAROON)
+        otherCiv().addNotification("[${civInfo.civName}] agreed to stop settling cities near us!", NotificationIcon.Diplomacy, civInfo.civName)
     }
 
     fun refuseDemandNotToSettleNear() {
         addModifier(DiplomaticModifiers.UnacceptableDemands, -20f)
         otherCivDiplomacy().setFlag(DiplomacyFlags.IgnoreThemSettlingNearUs, 100)
         otherCivDiplomacy().addModifier(DiplomaticModifiers.RefusedToNotSettleCitiesNearUs, -15f)
-        otherCiv().addNotification("[${civInfo.civName}] refused to stop settling cities near us!", Color.MAROON)
+        otherCiv().addNotification("[${civInfo.civName}] refused to stop settling cities near us!", NotificationIcon.Diplomacy, civInfo.civName)
     }
 
 
