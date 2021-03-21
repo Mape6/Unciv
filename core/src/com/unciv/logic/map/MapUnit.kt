@@ -7,6 +7,7 @@ import com.unciv.UncivGame
 import com.unciv.logic.automation.UnitAutomation
 import com.unciv.logic.automation.WorkerAutomation
 import com.unciv.logic.civilization.CivilizationInfo
+import com.unciv.logic.civilization.NotificationIcon
 import com.unciv.models.ruleset.Ruleset
 import com.unciv.models.ruleset.Unique
 import com.unciv.models.ruleset.unit.BaseUnit
@@ -21,8 +22,10 @@ class MapUnit {
 
     @Transient
     lateinit var civInfo: CivilizationInfo
+
     @Transient
     lateinit var baseUnit: BaseUnit
+
     @Transient
     internal lateinit var currentTile: TileInfo
 
@@ -40,22 +43,31 @@ class MapUnit {
     // which in turn is a component of getShortestPath and canReach
     @Transient
     var ignoresTerrainCost = false
+
     @Transient
     var allTilesCosts1 = false
+
     @Transient
     var canPassThroughImpassableTiles = false
+
     @Transient
     var roughTerrainPenalty = false
+
     @Transient
     var doubleMovementInCoast = false
+
     @Transient
     var doubleMovementInForestAndJungle = false
+
     @Transient
     var doubleMovementInSnowTundraAndHills = false
+
     @Transient
     var canEnterIceTiles = false
+
     @Transient
     var cannotEnterOceanTiles = false
+
     @Transient
     var cannotEnterOceanTilesUntilAstronomy = false
 
@@ -75,12 +87,8 @@ class MapUnit {
      * Name which should be displayed in UI
      */
     fun displayName(): String {
-        return if(instanceName == null) {
-            name
-        }
-        else {
-            "$instanceName ({$name})"
-        }
+        return if (instanceName == null) name
+        else "$instanceName ({$name})"
     }
 
     var currentMovement: Float = 0f
@@ -362,7 +370,7 @@ class MapUnit {
             val destination = action!!.replace("moveTo ", "").split(",").dropLastWhile { it.isEmpty() }.toTypedArray()
             val destinationVector = Vector2(destination[0].toFloat(), destination[1].toFloat())
             val destinationTile = currentTile.tileMap[destinationVector]
-            if (!movement.canReach(destinationTile)){ // That tile that we were moving towards is now unreachable -
+            if (!movement.canReach(destinationTile)) { // That tile that we were moving towards is now unreachable -
                 // for instance we headed towards an unknown tile and it's apparently unreachable
                 action = null
                 return
@@ -392,7 +400,7 @@ class MapUnit {
             tile.improvementInProgress!!.startsWith("Remove") -> {
                 val tileImprovement = tile.getTileImprovement()
                 if (tileImprovement != null
-                        && tileImprovement.terrainsCanBeBuiltOn.contains(tile.terrainFeature)
+                        && tile.terrainFeatures.any { tileImprovement.terrainsCanBeBuiltOn.contains(it) }
                         && !tileImprovement.terrainsCanBeBuiltOn.contains(tile.baseTerrain)) {
                     tile.improvement = null // We removed a terrain (e.g. Forest) and the improvement (e.g. Lumber mill) requires it!
                     if (tile.resource != null) civInfo.updateDetailedCivResources()        // unlikely, but maybe a mod makes a resource improvement dependent on a terrain feature
@@ -400,11 +408,12 @@ class MapUnit {
                 if (tile.improvementInProgress == "Remove Road" || tile.improvementInProgress == "Remove Railroad")
                     tile.roadStatus = RoadStatus.None
                 else {
-                    // We put "tile.terrainFeature!=null" because of a strange edge case that SHOULD be solved from 3.11.11+, so we should remove it then and see
-                    if (tile.terrainFeature != null && tile.tileMap.gameInfo.ruleSet.terrains[tile.terrainFeature!!]!!.uniques
-                                    .contains("Provides a one-time Production bonus to the closest city when cut down"))
-                        tryProvideProductionToClosestCity()
-                    tile.terrainFeature = null
+                    val removedFeature = tile.improvementInProgress!!.removePrefix("Remove ")
+                    if (tile.ruleset.terrains[removedFeature]!!.uniques
+                                    .contains("Provides a one-time Production bonus to the closest city when cut down")) {
+                        tryProvideProductionToClosestCity(removedFeature)
+                    }
+                    tile.terrainFeatures.remove(removedFeature)
                 }
             }
             tile.improvementInProgress == "Road" -> tile.roadStatus = RoadStatus.Road
@@ -417,28 +426,30 @@ class MapUnit {
         tile.improvementInProgress = null
     }
 
-    private fun tryProvideProductionToClosestCity() {
+    private fun tryProvideProductionToClosestCity(removedTerrainFeature: String) {
         val tile = getTile()
-        val closestCity = civInfo.cities.minBy { it.getCenterTile().aerialDistanceTo(tile) }
+        val closestCity = civInfo.cities.minByOrNull { it.getCenterTile().aerialDistanceTo(tile) }
         if (closestCity == null) return
         val distance = closestCity.getCenterTile().aerialDistanceTo(tile)
         var productionPointsToAdd = if (distance == 1) 20 else 20 - (distance - 2) * 5
         if (tile.owningCity == null || tile.owningCity!!.civInfo != civInfo) productionPointsToAdd = productionPointsToAdd * 2 / 3
         if (productionPointsToAdd > 0) {
             closestCity.cityConstructions.addProductionPoints(productionPointsToAdd)
-            civInfo.addNotification("Clearing a [${tile.terrainFeature}] has created [$productionPointsToAdd] Production for [${closestCity.name}]", closestCity.location, Color.BROWN)
+            civInfo.addNotification("Clearing a [$removedTerrainFeature] has created [$productionPointsToAdd] Production for [${closestCity.name}]", closestCity.location, Color.BROWN)
         }
 
     }
 
     private fun heal() {
         if (isEmbarked()) return // embarked units can't heal
+        if (civInfo.hasUnique("Can only heal by pillaging")) return
+
         var amountToHealBy = rankTileForHealing(getTile())
         if (amountToHealBy == 0) return
 
         if (hasUnique("+10 HP when healing")) amountToHealBy += 10
         val maxAdjacentHealingBonus = currentTile.getTilesInDistance(1)
-                .flatMap { it.getUnits().asSequence() }.map { it.adjacentHealingBonus() }.max()
+                .flatMap { it.getUnits().asSequence() }.map { it.adjacentHealingBonus() }.maxOrNull()
         if (maxAdjacentHealingBonus != null)
             amountToHealBy += maxAdjacentHealingBonus
         if (hasUnique("All healing effects doubled"))
@@ -605,7 +616,7 @@ class MapUnit {
             val city = civInfo.cities.random(tileBasedRandom)
             city.population.population++
             city.population.autoAssignPopulation()
-            civInfo.addNotification("We have found survivors in the ruins - population added to [" + city.name + "]", tile.position, Color.GREEN)
+            civInfo.addNotification("We have found survivors in the ruins - population added to [" + city.name + "]", tile.position, NotificationIcon.Growth)
         }
         val researchableAncientEraTechs = tile.tileMap.gameInfo.ruleSet.technologies.values
                 .filter {
@@ -617,7 +628,7 @@ class MapUnit {
             actions.add {
                 val tech = researchableAncientEraTechs.random(tileBasedRandom).name
                 civInfo.tech.addTechnology(tech)
-                civInfo.addNotification("We have discovered the lost technology of [$tech] in the ruins!", tile.position, Color.BLUE)
+                civInfo.addNotification("We have discovered the lost technology of [$tech] in the ruins!", tile.position, NotificationIcon.Science, tech)
             }
 
 
@@ -646,7 +657,7 @@ class MapUnit {
 
         actions.add {
             civInfo.policies.addCulture(20)
-            civInfo.addNotification("We have discovered cultural artifacts in the ruins! (+20 Culture)", tile.position, Color.GOLD)
+            civInfo.addNotification("We have discovered cultural artifacts in the ruins! (+20 Culture)", tile.position, NotificationIcon.Culture)
         }
 
         // Map of the surrounding area

@@ -3,6 +3,7 @@ package com.unciv.logic.city
 import com.badlogic.gdx.graphics.Color
 import com.unciv.logic.automation.ConstructionAutomation
 import com.unciv.logic.civilization.AlertType
+import com.unciv.logic.civilization.NotificationIcon
 import com.unciv.logic.civilization.PopupAlert
 import com.unciv.models.ruleset.Building
 import com.unciv.models.ruleset.UniqueMap
@@ -303,16 +304,17 @@ class CityConstructions {
 
         validateConstructionQueue() // if we've build e.g. the Great Lighthouse, then Lighthouse is no longer relevant in the queue
 
+        val buildingIcon = "BuildingIcons/${construction.name}"
         if (construction is Building && construction.isWonder) {
             cityInfo.civInfo.popupAlerts.add(PopupAlert(AlertType.WonderBuilt, construction.name))
             for (civ in cityInfo.civInfo.gameInfo.civilizations) {
                 if (civ.exploredTiles.contains(cityInfo.location))
-                    civ.addNotification("[${construction.name}] has been built in [${cityInfo.name}]", cityInfo.location, Color.BROWN)
+                    civ.addNotification("[${construction.name}] has been built in [${cityInfo.name}]", cityInfo.location, NotificationIcon.Construction, buildingIcon)
                 else
-                    civ.addNotification("[${construction.name}] has been built in a faraway land", null, Color.BROWN)
+                    civ.addNotification("[${construction.name}] has been built in a faraway land", buildingIcon)
             }
         } else
-            cityInfo.civInfo.addNotification("[${construction.name}] has been built in [" + cityInfo.name + "]", cityInfo.location, Color.BROWN)
+            cityInfo.civInfo.addNotification("[${construction.name}] has been built in [" + cityInfo.name + "]", cityInfo.location, NotificationIcon.Construction, buildingIcon)
     }
 
     fun addBuilding(buildingName: String) {

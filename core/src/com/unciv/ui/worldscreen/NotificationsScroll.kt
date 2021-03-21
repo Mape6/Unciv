@@ -2,6 +2,7 @@ package com.unciv.ui.worldscreen
 
 import com.unciv.ui.utils.AutoScrollPane as ScrollPane
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.unciv.logic.civilization.Notification
@@ -12,7 +13,7 @@ import kotlin.math.min
 
 class NotificationsScroll(internal val worldScreen: WorldScreen) : ScrollPane(null) {
 
-    var notificationsHash : Int = 0
+    var notificationsHash: Int = 0
 
     private var notificationsTable = Table()
 
@@ -24,17 +25,30 @@ class NotificationsScroll(internal val worldScreen: WorldScreen) : ScrollPane(nu
     internal fun update(notifications: MutableList<Notification>) {
 
         // no news? - keep our list as it is, especially don't reset scroll position
-        if(notificationsHash == notifications.hashCode())
+        if (notificationsHash == notifications.hashCode())
             return
         notificationsHash = notifications.hashCode()
 
         notificationsTable.clearChildren()
         for (notification in notifications.toList().reversed()) { // toList to avoid concurrency problems
-            val label = notification.text.toLabel(Color.BLACK,30)
+            val label = notification.text.toLabel(Color.BLACK, 30)
             val listItem = Table()
 
-            listItem.add(ImageGetter.getCircle()
-                    .apply { color=notification.color }).size(20f).padRight(5f)
+            val iconSize = 30f
+            if (notification.icons.isNotEmpty()) {
+                val ruleset = worldScreen.gameInfo.ruleSet
+                for (icon in notification.icons) {
+                    val image: Actor = when {
+                        ruleset.technologies.containsKey(icon) -> ImageGetter.getTechIcon(icon)
+                        ruleset.nations.containsKey(icon) -> ImageGetter.getNationIndicator(ruleset.nations[icon]!!, iconSize)
+                        ruleset.units.containsKey(icon) -> ImageGetter.getUnitIcon(icon)
+                        else -> ImageGetter.getImage(icon)
+                    }
+                    listItem.add(image).size(iconSize).padRight(5f)
+                }
+            }
+            else if(notification.color!=null) listItem.add(ImageGetter.getCircle()
+                    .apply { color = notification.color }).size(iconSize).padRight(5f)
             listItem.background = ImageGetter.getRoundedEdgeTableBackground().apply { setScale(0.5f) }
             listItem.add(label)
 
@@ -52,7 +66,7 @@ class NotificationsScroll(internal val worldScreen: WorldScreen) : ScrollPane(nu
         }
         notificationsTable.pack()
         pack()
-        height = min(notificationsTable.height,worldScreen.stage.height * 2 / 3 - 15f)
+        height = min(notificationsTable.height, worldScreen.stage.height * 2 / 3 - 15f)
     }
 
 }

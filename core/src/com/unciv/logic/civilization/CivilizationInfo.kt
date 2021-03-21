@@ -553,9 +553,22 @@ class CivilizationInfo {
         addNotification(text, color, LocationAction(locations))
     }
 
+    fun addNotification(text: String, location: Vector2, vararg notificationIcons: String) {
+        addNotification(text, LocationAction(listOf(location)), *notificationIcons)
+    }
+
+
     fun addNotification(text: String, color: Color, action: NotificationAction? = null) {
         if (playerType == PlayerType.AI) return // no point in lengthening the saved game info if no one will read it
         notifications.add(Notification(text, color, action))
+    }
+
+    fun addNotification(text: String, vararg notificationIcons: String) = addNotification(text, null, *notificationIcons)
+
+    fun addNotification(text: String, action:NotificationAction?, vararg notificationIcons: String) {
+        if (playerType == PlayerType.AI) return // no point in lengthening the saved game info if no one will read it
+        val arrayList = ArrayList<String>().apply { addAll(notificationIcons) }
+        notifications.add(Notification(text, arrayList, action))
     }
 
     fun addUnit(unitName: String, city: CityInfo? = null) {

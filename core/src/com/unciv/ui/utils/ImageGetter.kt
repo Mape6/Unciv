@@ -15,6 +15,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable
 import com.badlogic.gdx.utils.Align
 import com.unciv.Constants
+import com.unciv.UncivGame
 import com.unciv.models.ruleset.Nation
 import com.unciv.models.ruleset.Ruleset
 import com.unciv.models.ruleset.tile.ResourceType
@@ -65,7 +66,7 @@ object ImageGetter {
             }
 
         // These are from the mods
-        for (mod in ruleset.mods) {
+        for (mod in UncivGame.Current.settings.visualMods + ruleset.mods) {
             val modAtlasFile = Gdx.files.local("mods/$mod/game.atlas")
             if (!modAtlasFile.exists()) continue
             val modAtlas = TextureAtlas(modAtlasFile)
@@ -284,7 +285,9 @@ object ImageGetter {
         return iconGroup
     }
 
-    fun getTechIconGroup(techName: String, circleSize: Float): Group {
+    fun getTechIconGroup(techName: String, circleSize: Float) = getTechIcon(techName).surroundWithCircle(circleSize)
+
+    fun getTechIcon(techName: String): Image {
         val techIconColor = when (ruleset.technologies[techName]!!.era()) {
             Constants.ancientEra -> colorFromRGB(255, 87, 35)
             Constants.classicalEra -> colorFromRGB(233, 31, 99)
@@ -297,7 +300,6 @@ object ImageGetter {
             else -> Color.WHITE.cpy()
         }
         return getImage("TechIcons/$techName").apply { color = techIconColor.lerp(Color.BLACK, 0.6f) }
-                .surroundWithCircle(circleSize)
     }
 
     fun getProgressBarVertical(width: Float, height: Float, percentComplete: Float, progressColor: Color, backgroundColor: Color): Table {
