@@ -19,6 +19,8 @@ class ModManagementScreen: PickerScreen() {
     val downloadTable = Table().apply { defaults().pad(10f) }
     val modActionTable = Table().apply { defaults().pad(10f) }
 
+    val amountPerPage = 30
+
     init {
         setDefaultCloseAction(MainMenuScreen())
         refreshModTable()
@@ -33,10 +35,18 @@ class ModManagementScreen: PickerScreen() {
 
         downloadTable.add(getDownloadButton()).row()
 
+        tryDownloadPage(1)
+
+        topTable.add(ScrollPane(downloadTable)).height(scrollPane.height*0.8f)//.size(downloadTable.width, topTable.height)
+
+        topTable.add(modActionTable)
+    }
+
+    fun tryDownloadPage(pageNum:Int) {
         thread {
-            val repoList: ArrayList<Github.Repo>
+            val repoSearch: Github.RepoSearch
             try {
-                repoList = Github.tryGetGithubReposWithTopic()
+                repoSearch = Github.tryGetGithubReposWithTopic(amountPerPage, pageNum)!!
             } catch (ex: Exception) {
                 Gdx.app.postRunnable {
                     ToastPopup("Could not download mod list", this)
@@ -45,8 +55,7 @@ class ModManagementScreen: PickerScreen() {
             }
 
             Gdx.app.postRunnable {
-                for (repo in repoList) {
-                    if (repo.default_branch != "master") continue
+                for (repo in repoSearch.items) {
                     repo.name = repo.name.replace('-', ' ')
                     val downloadButton = repo.name.toTextButton()
                     downloadButton.onClick {
@@ -57,21 +66,25 @@ class ModManagementScreen: PickerScreen() {
                         rightSideButton.onClick {
                             rightSideButton.setText("Downloading...".tr())
                             rightSideButton.disable()
-                            downloadMod(repo.svn_url) {
+                            downloadMod(repo.svn_url, repo.default_branch) {
                                 rightSideButton.setText("Downloaded!".tr())
                             }
                         }
                     }
                     downloadTable.add(downloadButton).row()
                 }
+                if (repoSearch.items.size == amountPerPage) {
+                    val nextPageButton = "Next page".toTextButton()
+                    nextPageButton.onClick {
+                        nextPageButton.remove()
+                        tryDownloadPage(pageNum+1)
+                    }
+                    downloadTable.add(nextPageButton).row()
+                }
                 downloadTable.pack()
                 (downloadTable.parent as ScrollPane).actor = downloadTable
             }
         }
-
-        topTable.add(ScrollPane(downloadTable)).height(scrollPane.height*0.8f)//.size(downloadTable.width, topTable.height)
-
-        topTable.add(modActionTable)
     }
 
     fun getDownloadButton(): TextButton {
@@ -84,7 +97,7 @@ class ModManagementScreen: PickerScreen() {
             actualDownloadButton.onClick {
                 actualDownloadButton.setText("Downloading...".tr())
                 actualDownloadButton.disable()
-                downloadMod(textArea.text) { popup.close() }
+                downloadMod(textArea.text, "master") { popup.close() }
             }
             popup.add(actualDownloadButton).row()
             popup.addCloseButton()
@@ -93,10 +106,10 @@ class ModManagementScreen: PickerScreen() {
         return downloadButton
     }
 
-    fun downloadMod(gitRepoUrl:String, postAction:()->Unit={}){
+    fun downloadMod(gitRepoUrl:String, defaultBranch:String, postAction:()->Unit={}){
         thread { // to avoid ANRs - we've learnt our lesson from previous download-related actions
             try {
-                Github.downloadAndExtract("$gitRepoUrl/archive/master.zip",
+                Github.downloadAndExtract(gitRepoUrl, defaultBranch,
                         Gdx.files.local("mods"))
                 Gdx.app.postRunnable {
                     ToastPopup("Downloaded!", this)

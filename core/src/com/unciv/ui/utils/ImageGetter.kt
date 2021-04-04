@@ -7,7 +7,6 @@ import com.badlogic.gdx.graphics.g2d.NinePatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.scenes.scene2d.Actor
-import com.badlogic.gdx.scenes.scene2d.Group
 import com.badlogic.gdx.scenes.scene2d.ui.Image
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable
@@ -32,11 +31,19 @@ object ImageGetter {
     // So, we now use TexturePacker in the DesktopLauncher class to pack all the different images into single images,
     // and the atlas is what tells us what was packed where.
     lateinit var atlas: TextureAtlas
+    private val atlases = HashMap<String, TextureAtlas>()
     var ruleset = Ruleset()
 
     // We then shove all the drawables into a hashmap, because the atlas specifically tells us
     //   that the search on it is inefficient
-    private val textureRegionDrawables = HashMap<String, TextureRegionDrawable>()
+    internal val textureRegionDrawables = HashMap<String, TextureRegionDrawable>()
+
+    fun resetAtlases(){
+        atlases.values.forEach { it.dispose() }
+        atlases.clear()
+        atlas = TextureAtlas("game.atlas")
+        atlases["game"] = atlas
+    }
 
     /** Required every time the ruleset changes, in order to load mod-specific images */
     fun setNewRuleset(ruleset: Ruleset) {
@@ -49,27 +56,22 @@ object ImageGetter {
         }
 
         for (singleImagesFolder in sequenceOf("BuildingIcons", "FlagIcons", "UnitIcons")) {
-            val tempAtlas = TextureAtlas("$singleImagesFolder.atlas")
+            if (!atlases.containsKey(singleImagesFolder)) atlases[singleImagesFolder] = TextureAtlas("$singleImagesFolder.atlas")
+            val tempAtlas = atlases[singleImagesFolder]!!
             for (region in tempAtlas.regions) {
                 val drawable = TextureRegionDrawable(region)
                 textureRegionDrawables["$singleImagesFolder/" + region.name] = drawable
             }
         }
 
-        for (folder in Gdx.files.internal("SingleImages").list())
-            for (image in folder.list()) {
-                val texture = Texture(image)
-                // Since these aren't part of the packed texture we need to set this manually for each one
-                // Unfortunately since it's not power-of-2
-                texture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-                textureRegionDrawables[folder.name() + "/" + image.nameWithoutExtension()] = TextureRegionDrawable(texture)
-            }
-
         // These are from the mods
         for (mod in UncivGame.Current.settings.visualMods + ruleset.mods) {
             val modAtlasFile = Gdx.files.local("mods/$mod/game.atlas")
             if (!modAtlasFile.exists()) continue
-            val modAtlas = TextureAtlas(modAtlasFile)
+
+            if (!atlases.containsKey(mod)) atlases[mod] = TextureAtlas(modAtlasFile)
+            val modAtlas = atlases[mod]!!
+
             for (region in modAtlas.regions) {
                 val drawable = TextureRegionDrawable(region)
                 textureRegionDrawables[region.name] = drawable
@@ -149,9 +151,10 @@ object ImageGetter {
     }
 
     fun getRoundedEdgeTableBackground(tintColor: Color? = null): NinePatchDrawable {
-        val drawable = NinePatchDrawable(NinePatch(getDrawable("OtherIcons/buttonBackground").region, 25, 25, 0, 0)).apply {
-            setPadding(5f, 15f, 5f, 15f)
-        }
+        val region = getDrawable("OtherIcons/buttonBackground").region
+        val drawable = NinePatchDrawable(NinePatch(region, 25, 25, 0, 0))
+        drawable.setPadding(5f, 15f, 5f, 15f)
+
         if (tintColor == null) return drawable
         return drawable.tint(tintColor)
     }
@@ -223,7 +226,7 @@ object ImageGetter {
         return getStatIcon(construction)
     }
 
-    fun getPromotionIcon(promotionName: String): Actor {
+    fun getPromotionIcon(promotionName: String, size: Float = 30f): Actor {
         val level = when {
             promotionName.endsWith(" I") -> 1
             promotionName.endsWith(" II") -> 2
@@ -234,21 +237,18 @@ object ImageGetter {
         val basePromotionName = if (level == 0) promotionName
         else promotionName.substring(0, promotionName.length - level - 1)
 
-        if (imageExists("UnitPromotionIcons/$basePromotionName")) {
-            val icon = getImage("UnitPromotionIcons/$basePromotionName")
-            icon.color = colorFromRGB(255, 226, 0)
-            val circle = icon.surroundWithCircle(30f)
-            circle.circle.color = colorFromRGB(0, 12, 49)
-            if (level != 0) {
-                val starTable = Table().apply { defaults().pad(2f) }
-                for (i in 1..level) starTable.add(getImage("OtherIcons/Star")).size(8f)
-                starTable.centerX(circle)
-                starTable.y = 5f
-                circle.addActor(starTable)
-            }
-            return circle
+        val circle = getImage("UnitPromotionIcons/$basePromotionName")
+                .apply { color= colorFromRGB(255, 226, 0) }
+                .surroundWithCircle(size)
+                .apply { circle.color = colorFromRGB(0, 12, 49) }
+        if (level != 0) {
+            val starTable = Table().apply { defaults().pad(2f) }
+            for (i in 1..level) starTable.add(getImage("OtherIcons/Star")).size(size / 3f)
+            starTable.centerX(circle)
+            starTable.y = size / 6f
+            circle.addActor(starTable)
         }
-        return getImage("UnitPromotionIcons/" + promotionName.replace(' ', '_') + "_(Civ5)")
+        return circle
     }
 
     fun getBlue() = Color(0x004085bf)
@@ -257,7 +257,7 @@ object ImageGetter {
     fun getTriangle() = getImage("OtherIcons/Triangle")
 
     fun getBackground(color: Color): Drawable {
-        val drawable = getDrawable("OtherIcons/TableBackground")
+        val drawable = getDrawable("")
         drawable.minHeight = 0f
         drawable.minWidth = 0f
         return drawable.tint(color)

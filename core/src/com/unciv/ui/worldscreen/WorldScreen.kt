@@ -10,6 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.Touchable
 import com.badlogic.gdx.scenes.scene2d.actions.Actions
 import com.badlogic.gdx.scenes.scene2d.actions.RepeatAction
 import com.badlogic.gdx.scenes.scene2d.ui.Button
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane
 import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.utils.Align
@@ -70,7 +71,6 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
 
 
     init {
-        ImageGetter.setNewRuleset(gameInfo.ruleSet) // so that even if the multiplayerpoller pulls us back into a game after we changed rulesets, the images will be utd
         topBar.setPosition(0f, stage.height - topBar.height)
         topBar.width = stage.width
 
@@ -125,8 +125,6 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
 
         stage.addActor(unitActionsTable)
 
-        // still a zombie: createNextTurnButton() // needs civ table to be positioned
-
         val tileToCenterOn: Vector2 =
                 when {
                     viewingCiv.cities.isNotEmpty() -> viewingCiv.getCapital().location
@@ -139,6 +137,13 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
             mapHolder.setCenterPosition(tileToCenterOn, true, false)
         else
             mapHolder.setCenterPosition(tileToCenterOn, true, true)
+
+
+        tutorialController.allTutorialsShowedCallback = { shouldUpdate = true }
+
+        onBackButtonClicked { backButtonAndESCHandler() }
+
+        addKeyboardListener() // for map panning by W,S,A,D
 
 
         if (gameInfo.gameParameters.isOnlineMultiplayer && !gameInfo.isUpToDate)
@@ -154,12 +159,6 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
                 loadLatestMultiplayerState()
             }
         }
-
-        tutorialController.allTutorialsShowedCallback = { shouldUpdate = true }
-
-        onBackButtonClicked { backButtonAndESCHandler() }
-
-        addKeyboardListener() // for map panning by W,S,A,D
 
         // don't run update() directly, because the UncivGame.worldScreen should be set so that the city buttons and tile groups
         //  know what the viewing civ is.
@@ -231,7 +230,6 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
     }
 
     private fun loadLatestMultiplayerState() {
-
         // Since we're on a background thread, all the UI calls in this func need to run from the
         // main thread which has a GL context
         val loadingGamePopup = Popup(this)
@@ -244,8 +242,11 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
             val latestGame = OnlineMultiplayer().tryDownloadGame(gameInfo.gameId)
 
             // if we find it still isn't player's turn...nothing changed
-            if (gameInfo.isUpToDate && gameInfo.currentPlayer == latestGame.currentPlayer) {
+            if (gameInfo.currentPlayer == latestGame.currentPlayer) {
                 Gdx.app.postRunnable { loadingGamePopup.close() }
+                // edge case - if there's only one player in a multiplayer game, we still check online, but it could be that we were correct and it is our turn
+                isPlayersTurn = latestGame.currentPlayer == viewingCiv.civName
+                shouldUpdate = true
                 return
             } else { //else we found it is the player's turn again, turn off polling and load turn
                 stopMultiPlayerRefresher()
@@ -315,7 +316,6 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
         techPolicyAndVictoryHolder.setPosition(10f, topBar.y - techPolicyAndVictoryHolder.height - 5f)
         updateDiplomacyButton(viewingCiv)
 
-
         if (!hasOpenPopups() && isPlayersTurn) {
             when {
                 !gameInfo.oneMoreTurnMode && (viewingCiv.isDefeated() || gameInfo.civilizations.any { it.victoryManager.hasWon() }) ->
@@ -383,16 +383,11 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
         displayTutorial(Tutorial.Introduction)
 
         displayTutorial(Tutorial.EnemyCityNeedsConqueringWithMeleeUnit) {
-            // diplomacy is a HashMap, cities a List - so sequences should help
-            // .flatMap { it.getUnits().asSequence() }  is not a good idea because getUnits constructs an ArrayList dynamically
             viewingCiv.diplomacy.values.asSequence()
                     .filter { it.diplomaticStatus == DiplomaticStatus.War }
-                    .map { it.otherCiv() }
-                    // we're now lazily enumerating over CivilizationInfo's we're at war with
-                    .flatMap { it.cities.asSequence() }
-                    // ... all *their* cities
-                    .filter { it.health == 1 }
-                    // ... those ripe for conquering
+                    .map { it.otherCiv() } // we're now lazily enumerating over CivilizationInfo's we're at war with
+                    .flatMap { it.cities.asSequence() } // ... all *their* cities
+                    .filter { it.health == 1 } // ... those ripe for conquering
                     .flatMap { it.getCenterTile().getTilesInDistance(2).asSequence() }
                     // ... all tiles around those in range of an average melee unit
                     // -> and now we look for a unit that could do the conquering because it's ours
@@ -606,6 +601,23 @@ class WorldScreen(val gameInfo: GameInfo, val viewingCiv:CivilizationInfo) : Cam
                 NextTurnAction("Pick a policy", Color.VIOLET) {
                     game.setScreen(PolicyPickerScreen(this))
                     viewingCiv.policies.shouldOpenPolicyPicker = false
+                }
+
+            viewingCiv.religionManager.canFoundPantheon() ->
+                NextTurnAction("Found Pantheon", Color.WHITE) {
+                    val pantheonPopup = Popup(this)
+                    val beliefsTable = Table().apply { defaults().pad(10f) }
+                    for (belief in gameInfo.ruleSet.beliefs.values) {
+                        if (belief.type != "Pantheon" || gameInfo.civilizations.any { it.religionManager.pantheonBelief == belief.name }) continue
+                        val beliefTable = Table().apply { touchable = Touchable.enabled; background = ImageGetter.getBackground(ImageGetter.getBlue()) }
+                        beliefTable.pad(10f)
+                        beliefTable.add(belief.name.toLabel(fontSize = 24)).row()
+                        beliefTable.add(belief.uniques.joinToString().toLabel())
+                        beliefTable.onClick { viewingCiv.religionManager.choosePantheonBelief(belief); pantheonPopup.close(); shouldUpdate = true }
+                        beliefsTable.add(beliefTable).fillX().row()
+                    }
+                    pantheonPopup.add(ScrollPane(beliefsTable)).maxHeight(stage.height*.8f)
+                    pantheonPopup.open()
                 }
 
             else ->

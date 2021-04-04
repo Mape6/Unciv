@@ -52,6 +52,7 @@ class Ruleset {
     val specialists = LinkedHashMap<String, Specialist>()
     val policyBranches = LinkedHashMap<String, PolicyBranch>()
     val policies = LinkedHashMap<String, Policy>()
+    val beliefs = LinkedHashMap<String, Belief>()
     val difficulties = LinkedHashMap<String, Difficulty>()
     val mods = LinkedHashSet<String>()
     var modOptions = ModOptions()
@@ -76,6 +77,7 @@ class Ruleset {
         nations.putAll(ruleset.nations)
         policyBranches.putAll(ruleset.policyBranches)
         policies.putAll(ruleset.policies)
+        beliefs.putAll(ruleset.beliefs)
         quests.putAll(ruleset.quests)
         specialists.putAll(ruleset.specialists)
         technologies.putAll(ruleset.technologies)
@@ -96,6 +98,7 @@ class Ruleset {
         nations.clear()
         policyBranches.clear()
         policies.clear()
+        beliefs.clear()
         quests.clear()
         technologies.clear()
         buildings.clear()
@@ -116,8 +119,7 @@ class Ruleset {
         if (modOptionsFile.exists()) {
             try {
                 modOptions = jsonParser.getFromJson(ModOptions::class.java, modOptionsFile)
-            } catch (ex: Exception) {
-            }
+            } catch (ex: Exception) {}
         }
 
         val techFile = folderHandle.child("Techs.json")
@@ -172,6 +174,11 @@ class Ruleset {
             }
         }
 
+        val beliefsFile = folderHandle.child("Beliefs.json")
+        if (beliefsFile.exists())
+            beliefs += createHashmap(jsonParser.getFromJson(Array<Belief>::class.java, beliefsFile))
+
+
         val nationsFile = folderHandle.child("Nations.json")
         if (nationsFile.exists()) {
             nations += createHashmap(jsonParser.getFromJson(Array<Nation>::class.java, nationsFile))
@@ -200,9 +207,8 @@ class Ruleset {
         }
     }
 
-    fun getEras(): List<String> {
-        return technologies.values.map { it.column!!.era }.distinct()
-    }
+    fun getEras(): List<String> = technologies.values.map { it.column!!.era }.distinct()
+    fun hasReligion() = beliefs.any()
 
     fun getEraNumber(era: String) = getEras().indexOf(era)
     fun getSummary(): String {
@@ -214,6 +220,7 @@ class Ruleset {
         if (buildings.isNotEmpty()) stringList.add(buildings.size.toString() + " Buildings")
         if (tileResources.isNotEmpty()) stringList.add(tileResources.size.toString() + " Resources")
         if (tileImprovements.isNotEmpty()) stringList.add(tileImprovements.size.toString() + " Improvements")
+        if (beliefs.isNotEmpty()) stringList.add(beliefs.size.toString() + " Beliefs")
         return stringList.joinToString()
     }
 

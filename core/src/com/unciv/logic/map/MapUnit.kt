@@ -1,6 +1,5 @@
 package com.unciv.logic.map
 
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.math.Vector2
 import com.unciv.Constants
 import com.unciv.UncivGame
@@ -412,12 +411,13 @@ class MapUnit {
                 if (tile.improvementInProgress == "Remove Road" || tile.improvementInProgress == "Remove Railroad")
                     tile.roadStatus = RoadStatus.None
                 else {
-                    val removedFeature = tile.improvementInProgress!!.removePrefix("Remove ")
-                    if (tile.ruleset.terrains[removedFeature]!!.uniques
+                    val removedFeatureName = tile.improvementInProgress!!.removePrefix("Remove ")
+                    val removedFeatureObject = tile.ruleset.terrains[removedFeatureName]
+                    if (removedFeatureObject!=null && removedFeatureObject.uniques
                                     .contains("Provides a one-time Production bonus to the closest city when cut down")) {
-                        tryProvideProductionToClosestCity(removedFeature)
+                        tryProvideProductionToClosestCity(removedFeatureName)
                     }
-                    tile.terrainFeatures.remove(removedFeature)
+                    tile.terrainFeatures.remove(removedFeatureName)
                 }
             }
             tile.improvementInProgress == "Road" -> tile.roadStatus = RoadStatus.Road
