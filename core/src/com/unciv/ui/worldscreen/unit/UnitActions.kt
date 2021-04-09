@@ -1,6 +1,5 @@
 package com.unciv.ui.worldscreen.unit
 
-import com.badlogic.gdx.graphics.Color
 import com.unciv.Constants
 import com.unciv.UncivGame
 import com.unciv.logic.automation.UnitAutomation
@@ -87,8 +86,8 @@ object UnitActions {
 
         val improvement = tile.getTileResource().improvement
 
-        if (tile.improvement == null
-                && unit.civInfo.tech.isResearched(tile.ruleset.tileImprovements[improvement]!!.techRequired!!))
+        if (tile.improvement == null && tile.ruleset.tileImprovements.containsKey(improvement)
+                && tile.ruleset.tileImprovements[improvement]!!.techRequired.let { it == null || unit.civInfo.tech.isResearched(it) })
             return UnitAction(UnitActionType.Create, "Create [$improvement]",
                     action = {
                         tile.improvement = improvement
