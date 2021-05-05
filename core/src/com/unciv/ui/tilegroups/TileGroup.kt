@@ -193,8 +193,11 @@ open class TileGroup(var tileInfo: TileInfo, var tileSetStrings:TileSetStrings, 
     }
 
     fun getTerrainImageLocations(terrainSequence: Sequence<String>): List<String> {
-        val allTerrains = terrainSequence.joinToString("+").let { tileSetStrings.getTile(it) }
-        if (ImageGetter.imageExists(allTerrains)) return listOf(allTerrains)
+        val allTerrains = terrainSequence.joinToString("+")
+        if (tileSetStrings.tileSetConfig.ruleVariants.containsKey(allTerrains))
+            return tileSetStrings.tileSetConfig.ruleVariants[allTerrains]!!.map { tileSetStrings.getTile(it) }
+        val allTerrainTile = tileSetStrings.getTile(allTerrains)
+        if (ImageGetter.imageExists(allTerrainTile)) return listOf(allTerrainTile)
         else return terrainSequence.map { tileSetStrings.getTile(it) }.toList()
     }
 
@@ -332,8 +335,7 @@ open class TileGroup(var tileInfo: TileInfo, var tileSetStrings:TileSetStrings, 
     }
 
     private fun updateTileImage(viewingCiv: CivilizationInfo?) {
-        val tileBaseImageLocations = if (UncivGame.Current.settings.showExperimentalTileLayering) getTileBaseImageLocationsNew(viewingCiv)
-        else getTileBaseImageLocations(viewingCiv)
+        val tileBaseImageLocations = getTileBaseImageLocationsNew(viewingCiv)
 
         if (tileBaseImageLocations.size == tileImageIdentifiers.size) {
             if (tileBaseImageLocations.withIndex().all { (i, imageLocation) -> tileImageIdentifiers[i] == imageLocation })
@@ -413,7 +415,7 @@ open class TileGroup(var tileInfo: TileInfo, var tileSetStrings:TileSetStrings, 
         hideCircle()
         if (viewingCiv != null && !isExplored(viewingCiv)) {
             clearUnexploredTiles()
-            for(image in tileBaseImages) image.color = Color.DARK_GRAY
+            for(image in tileBaseImages) image.color = tileSetStrings.tileSetConfig.unexploredTileColor
             return
         }
 
@@ -661,11 +663,11 @@ open class TileGroup(var tileInfo: TileInfo, var tileSetStrings:TileSetStrings, 
 
     private fun updateTileColor(isViewable: Boolean) {
         var color =
-                if (ImageGetter.imageExists(tileSetStrings.getTile(tileInfo.baseTerrain)))
-                    Color.WHITE // no need to color it, it's already colored
-                else tileInfo.getBaseTerrain().getColor()
+                if (tileSetStrings.tileSetConfig.useColorAsBaseTerrain)
+                    tileInfo.getBaseTerrain().getColor()
+                else Color.WHITE // no need to color it, it's already colored
 
-        if (!isViewable) color =color.cpy().lerp(Color.BLACK, 0.6f)
+        if (!isViewable) color = color.cpy().lerp(tileSetStrings.tileSetConfig.fogOfWarColor, 0.6f)
         for(image in tileBaseImages) image.color = color
     }
 

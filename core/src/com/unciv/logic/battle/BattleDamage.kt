@@ -48,7 +48,6 @@ object BattleDamage {
                 if (enemy.matchesCategory(BDM.vs)) {
                     addToModifiers(BDM)
                 }
-
             }
 
             for (unique in combatant.unit.getMatchingUniques("+[]% Strength vs []")) {
@@ -87,9 +86,8 @@ object BattleDamage {
 
 
             val nearbyCivUnits = combatant.unit.getTile().getTilesInDistance(2)
-                    .filter { it.civilianUnit?.civInfo == combatant.unit.civInfo }
-                    .map { it.civilianUnit }
-            if (nearbyCivUnits.any { it!!.hasUnique("Bonus for units in 2 tile radius 15%") }) {
+                    .flatMap { it.getUnits() }.filter { it.civInfo == combatant.unit.civInfo }
+            if (nearbyCivUnits.any { it.hasUnique("Bonus for units in 2 tile radius 15%") }) {
                 val greatGeneralModifier = if (combatant.unit.civInfo.hasUnique("Great General provides double combat bonus")) 30 else 15
                 modifiers["Great General"] = greatGeneralModifier
             }
@@ -173,8 +171,8 @@ object BattleDamage {
         modifiers.putAll(getTileSpecificModifiers(defender, tile))
 
         val tileDefenceBonus = tile.getDefensiveBonus()
-        if ((!defender.unit.hasUnique("No defensive terrain bonus") && tileDefenceBonus > 0)
-                || (!defender.unit.hasUnique("No defensive terrain penalty") && tileDefenceBonus < 0))
+        if (!defender.unit.hasUnique("No defensive terrain bonus") && tileDefenceBonus > 0
+                || !defender.unit.hasUnique("No defensive terrain penalty") && tileDefenceBonus < 0)
             modifiers["Tile"] = (tileDefenceBonus * 100).toInt()
 
         if (attacker.isRanged()) {
@@ -201,8 +199,7 @@ object BattleDamage {
     private fun getTileSpecificModifiers(unit: MapUnitCombatant, tile: TileInfo): Counter<String> {
         val modifiers = Counter<String>()
 
-        for (unique in unit.unit.getMatchingUniques("+[]% combat bonus in []") // deprecated as of 3.14.1 - changed to "+[]% Strength in []"
-                + unit.unit.getMatchingUniques("+[]% Strength in []")
+        for (unique in unit.unit.getMatchingUniques("+[]% Strength in []")
                 + unit.getCivInfo().getMatchingUniques("+[]% combat bonus for units fighting in []")) {
             val filter = unique.params[1]
             if (tile.matchesUniqueFilter(filter, unit.getCivInfo()))
@@ -220,13 +217,6 @@ object BattleDamage {
             modifiers["Haka War Dance"] = -10
 
 
-        // Deprecated as of 3.14.1 - changed to "+[15]% Strength in [Rough terrain]"
-        val isRoughTerrain = tile.isRoughTerrain()
-        for (BDM in getBattleDamageModifiersOfUnit(unit.unit)) {
-            val text = BDM.getText()
-            if (BDM.vs == "units in open terrain" && !isRoughTerrain) modifiers.add(text, (BDM.modificationAmount).toInt())
-            if (BDM.vs == "units in rough terrain" && isRoughTerrain) modifiers.add(text, (BDM.modificationAmount).toInt())
-        }
 
         return modifiers
     }

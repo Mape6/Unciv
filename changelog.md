@@ -1,3 +1,58 @@
+## 3.14.5
+
+New tile layering is live for all users!
+
+Tile options in map editor screen no longer 'click' on tiles behind them
+
+Added construction production info to city screen
+
+Specify original owner when showing "Liberate city"
+
+Added "Self-destructs when attacking" unique
+
+By SomeTroglodyte:
+- City expansion notification points to acquired tile
+- Visual improvements for the City Overview 
+
+Fix screen bugs when you don't use splitpane in pickscreen  - By lishaoxia1985
+
+## 3.14.4
+
+Resolved #3524 - Happiness in city overview now calculated correctly
+
+Added Happiness (and Faith for Religion mods) to stats list - #3524
+
+Resolved #3837 - Harad -> Harald in Denmark greeting
+
+By SomeTroglodyte:
+
+- Keyboard navigation to switch panes within overview screen
+- Some visual improvements for the Mod Manager Screen
+- Bigger target on "next city" button
+- Fixed #3729 "Android crash on loading from custom location"
+
+By GGGuenni:
+- Added fogOfWarColor and unexploredTileColor
+- Fixed internal TileSetConfigs not getting loaded on android
+
+## 3.14.3
+
+Added 'update time', 'open Github page', and marked updated mods, in mod management screen
+
+Cannot enter diplomacy screen for irrelevant civs through diplomacy overview
+
+Resolved #3817 - don't display resource requirements twice
+
+By SomeTroglodyte:
+
+- Mod translations now appear in new game screen
+- Citadel tiles don't attach to razing cities if possible
+- City center now unpillagable
+
+Parameterize civ-wide sight bonus - By SpacedOutChicken
+
+Translation updates
+
 ## 3.14.2
 
 Put world wrap behind setting again and added warning for world wrap for Android - I'm seeing a lot of ANRs in recent versions, but it's not something that seems solvable.
