@@ -21,16 +21,15 @@ class MapGenerator(val ruleset: Ruleset) {
     private var randomness = MapGenerationRandomness()
 
     fun generateMap(mapParameters: MapParameters, seed: Long = System.currentTimeMillis()): TileMap {
-        val mapRadius = mapParameters.size.radius
+        val mapSize = mapParameters.mapSize
         val mapType = mapParameters.type
         val map: TileMap
 
         if (mapParameters.shape == MapShape.rectangular) {
-            val size = HexMath.getEquivalentRectangularSize(mapRadius)
+            val size = HexMath.getEquivalentRectangularSize(mapSize.radius)
             map = TileMap(size.x.toInt(), size.y.toInt(), ruleset, mapParameters.worldWrap)
         }
-        else
-            map = TileMap(mapRadius, ruleset, mapParameters.worldWrap)
+        else map = TileMap(mapSize.radius, ruleset, mapParameters.worldWrap)
 
         map.mapParameters = mapParameters
         map.mapParameters.seed = seed
@@ -120,7 +119,7 @@ class MapGenerator(val ruleset: Ruleset) {
     }
 
     private fun spreadResources(tileMap: TileMap) {
-        val distance = tileMap.mapParameters.size.radius
+        val distance = tileMap.mapParameters.mapSize.radius
         for (tile in tileMap.values)
             tile.resource = null
 
@@ -189,7 +188,7 @@ class MapGenerator(val ruleset: Ruleset) {
 
             when {
                 elevation <= 0.5 -> tile.baseTerrain = Constants.plains
-                elevation <= 0.7 -> tile.baseTerrain = Constants.hill
+                elevation <= 0.7 -> tile.terrainFeatures.add(Constants.hill)
                 elevation <= 1.0 -> tile.baseTerrain = Constants.mountain
             }
             tile.setTerrainTransients()
@@ -258,12 +257,13 @@ class MapGenerator(val ruleset: Ruleset) {
     private fun spawnVegetation(tileMap: TileMap) {
         val vegetationSeed = randomness.RNG.nextInt().toDouble()
         val candidateTerrains = Constants.vegetation.flatMap{ ruleset.terrains[it]!!.occursOn }
-        for (tile in tileMap.values.asSequence().filter { it.baseTerrain in candidateTerrains && it.terrainFeatures.isEmpty()
-                && (!it.isHill() || Constants.hill in candidateTerrains) }) {
+        //Checking it.baseTerrain in candidateTerrains to make sure forest does not spawn on desert hill
+        for (tile in tileMap.values.asSequence().filter { it.baseTerrain in candidateTerrains
+                && it.getLastTerrain().name in candidateTerrains }) {
             val vegetation = (randomness.getPerlinNoise(tile, vegetationSeed, scale = 3.0, nOctaves = 1) + 1.0) / 2.0
 
             if (vegetation <= tileMap.mapParameters.vegetationRichness)
-                tile.terrainFeatures.add(Constants.vegetation.filter { ruleset.terrains[it]!!.occursOn.contains(tile.baseTerrain) }.random(randomness.RNG))
+                tile.terrainFeatures.add(Constants.vegetation.filter { ruleset.terrains[it]!!.occursOn.contains(tile.getLastTerrain().name) }.random(randomness.RNG))
         }
     }
     /**
