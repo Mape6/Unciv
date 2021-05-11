@@ -7,8 +7,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.ui.TextField
 import com.badlogic.gdx.utils.Json
-import com.unciv.MainMenuScreen
-import com.unciv.UncivGame
 import com.unciv.logic.MapSaver
 import com.unciv.logic.map.MapType
 import com.unciv.logic.map.TileMap
@@ -19,7 +17,8 @@ import com.unciv.ui.utils.*
 import kotlin.concurrent.thread
 import com.unciv.ui.utils.AutoScrollPane as ScrollPane
 
-class SaveAndLoadMapScreen(mapToSave: TileMap?, save:Boolean = false) : PickerScreen() {
+class SaveAndLoadMapScreen(mapToSave: TileMap?, save:Boolean = false, previousScreen: CameraStageBaseScreen)
+        : PickerScreen(disableScroll = true) {
     var chosenMap: FileHandle? = null
     val deleteButton = "Delete map".toTextButton()
     val mapsTable = Table().apply { defaults().pad(10f) }
@@ -116,13 +115,13 @@ class SaveAndLoadMapScreen(mapToSave: TileMap?, save:Boolean = false) : PickerSc
         deleteButton.onClick {
             YesNoPopup("Are you sure you want to delete this map?", {
                 chosenMap!!.delete()
-                game.setScreen(SaveAndLoadMapScreen(mapToSave))
+                game.setScreen(SaveAndLoadMapScreen(mapToSave, save, previousScreen))
             }, this).open()
         }
         rightSideTable.add(deleteButton).row()
 
         topTable.add(rightSideTable)
-        setDefaultCloseAction(MainMenuScreen())
+        setDefaultCloseAction(previousScreen)
 
         update()
     }

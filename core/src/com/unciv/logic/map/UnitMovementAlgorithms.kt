@@ -2,7 +2,6 @@ package com.unciv.logic.map
 
 import com.badlogic.gdx.math.Vector2
 import com.unciv.Constants
-import com.unciv.UncivGame
 import com.unciv.logic.civilization.CivilizationInfo
 
 class UnitMovementAlgorithms(val unit:MapUnit) {
@@ -191,8 +190,8 @@ class UnitMovementAlgorithms(val unit:MapUnit) {
         return when (currentTile) {
             in destinationNeighbors -> currentTile // We're right nearby anyway, no need to move
             else -> destinationNeighbors.asSequence()
-                    .filter { distanceToTiles.containsKey(it) && canMoveTo(it) }
-                    .minBy { distanceToTiles.getValue(it).totalDistance } // we can get a little closer
+                .filter { distanceToTiles.containsKey(it) && canMoveTo(it) }
+                .minByOrNull { distanceToTiles.getValue(it).totalDistance } // we can get a little closer
                     ?: currentTile // We can't get closer...
         }
     }

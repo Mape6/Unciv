@@ -6,10 +6,8 @@ import com.unciv.logic.HexMath
 import com.unciv.logic.map.*
 import com.unciv.models.Counter
 import com.unciv.models.ruleset.Ruleset
-import com.unciv.models.ruleset.Unique
 import com.unciv.models.ruleset.tile.ResourceType
 import com.unciv.models.ruleset.tile.TerrainType
-import com.unciv.models.translations.equalsPlaceholderText
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.pow
@@ -169,7 +167,7 @@ class MapGenerator(val ruleset: Ruleset) {
                     .filter { it.terrainsCanBeFoundOn.contains(tile.getLastTerrain().name) }
                     .map { it.name }
             if (possibleResources.isEmpty()) continue
-            val resourceWithLeastAssignments = possibleResources.minBy { resourceToNumber[it]!! }!!
+            val resourceWithLeastAssignments = possibleResources.minByOrNull { resourceToNumber[it]!! }!!
             resourceToNumber.add(resourceWithLeastAssignments, 1)
             tile.resource = resourceWithLeastAssignments
         }
