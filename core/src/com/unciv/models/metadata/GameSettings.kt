@@ -27,6 +27,7 @@ class GameSettings {
     var automatedWorkersReplaceImprovements = true
 
     var showMinimap: Boolean = true
+    var minimapSize: Int = 1
     var showPixelUnits: Boolean = false
     var showPixelImprovements: Boolean = true
     var continuousRendering = false
@@ -42,6 +43,8 @@ class GameSettings {
     var showExperimentalWorldWrap = false // We're keeping this as a config due to ANR problems on Android phones for people who don't know what they're doing :/
 
     var lastOverviewPage: String = "Cities"
+
+    var allowAndroidPortrait = false    // Opt-in to allow Unciv to follow a screen rotation to portrait
 
     init {
         // 26 = Android Oreo. Versions below may display permanent icon in notification bar.
