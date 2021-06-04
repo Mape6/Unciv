@@ -18,10 +18,9 @@ import com.unciv.models.stats.Stat
 import com.unciv.models.translations.tr
 import com.unciv.ui.utils.*
 import kotlin.concurrent.thread
-import kotlin.math.min
 import com.unciv.ui.utils.AutoScrollPane as ScrollPane
 
-class ConstructionsTable(val cityScreen: CityScreen) : Table(CameraStageBaseScreen.skin) {
+class CityConstructionsTable(val cityScreen: CityScreen) : Table(CameraStageBaseScreen.skin) {
     /* -1 = Nothing, >= 0 queue entry (0 = current construction) */
     private var selectedQueueEntry = -1 // None
 
@@ -285,7 +284,9 @@ class ConstructionsTable(val cityScreen: CityScreen) : Table(CameraStageBaseScre
 
         if (!cannotAddConstructionToQueue(construction, cityScreen.city, cityScreen.city.cityConstructions)) {
             val addToQueueButton = ImageGetter.getImage("OtherIcons/New").apply { color = Color.BLACK }.surroundWithCircle(40f)
-            addToQueueButton.onClick { addConstructionToQueue(construction, cityScreen.city.cityConstructions) }
+            addToQueueButton.onClick(getConstructionSound(construction)) {
+                addConstructionToQueue(construction, cityScreen.city.cityConstructions)
+            }
             pickConstructionButton.add(addToQueueButton)
         }
         pickConstructionButton.row()
@@ -339,7 +340,9 @@ class ConstructionsTable(val cityScreen: CityScreen) : Table(CameraStageBaseScre
                     || cannotAddConstructionToQueue(construction, city, cityConstructions)) {
                 button.disable()
             } else {
-                button.onClick { addConstructionToQueue(construction, cityConstructions) }
+                button.onClick(getConstructionSound(construction)) {
+                    addConstructionToQueue(construction, cityConstructions)
+                }
             }
         }
 
@@ -361,6 +364,15 @@ class ConstructionsTable(val cityScreen: CityScreen) : Table(CameraStageBaseScre
         cityScreen.game.settings.addCompletedTutorialTask("Pick construction")
     }
 
+    fun getConstructionSound(construction: IConstruction): UncivSound {
+        return when(construction) {
+            is Building -> UncivSound.Construction
+            is BaseUnit -> UncivSound.Promote
+            PerpetualConstruction.gold -> UncivSound.Coin
+            PerpetualConstruction.science -> UncivSound.Paper
+            else -> UncivSound.Click
+        }
+    }
 
     fun purchaseConstruction(construction: IConstruction) {
         val city = cityScreen.city
