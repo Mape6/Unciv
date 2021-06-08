@@ -75,7 +75,7 @@ class Building : NamedStats(), IConstruction {
         val str = getStats(null).toString()
         if (str.isNotEmpty()) infoList += str
         for (stat in getStatPercentageBonuses(null).toHashMap())
-            if (stat.value != 0f) infoList += "+${stat.value.toInt()}% ${stat.key.toString().tr()}"
+            if (stat.value != 0f) infoList += "+${stat.value.toInt()}% ${stat.key.name.tr()}"
 
         val improvedResources = ruleset.tileResources.values.asSequence().filter { it.building == name }.map { it.name.tr() }
         if (improvedResources.any()) {
@@ -413,8 +413,8 @@ class Building : NamedStats(), IConstruction {
             civInfo.victoryManager.currentsSpaceshipParts.add(name, 1)
             return true
         }
-        cityConstructions.addBuilding(name)
 
+        cityConstructions.addBuilding(name)
 
         val improvement = getImprovement(civInfo.gameInfo.ruleSet)
         if (improvement != null) {
@@ -458,6 +458,7 @@ class Building : NamedStats(), IConstruction {
         if (get(stat) > 0) return true
         if (getStatPercentageBonuses(null).get(stat) > 0) return true
         if (resourceBonusStats != null && resourceBonusStats!!.get(stat) > 0) return true
+        if (uniqueObjects.any { it.placeholderText == "[] Per [] Population in this city" && it.stats.get(stat) > 0 }) return true
         return false
     }
 

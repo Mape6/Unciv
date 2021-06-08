@@ -637,11 +637,11 @@ class CivilizationInfo {
         return (basicGoldCostOfSignResearchAgreement * gameInfo.gameParameters.gameSpeed.modifier).toInt()
     }
 
-    fun giftMilitaryUnitTo(otherCiv: CivilizationInfo) {
+    fun gainMilitaryUnitFromCityState(otherCiv: CivilizationInfo) {
         val cities = NextTurnAutomation.getClosestCities(this, otherCiv)
         val city = cities.city1
         val militaryUnit = city.cityConstructions.getConstructableUnits()
-                .filter { !it.unitType.isCivilian() && it.unitType.isLandUnit() }
+                .filter { !it.unitType.isCivilian() && it.unitType.isLandUnit() && it.uniqueTo==null }
                 .toList().random()
         // placing the unit may fail - in that case stay quiet
         val placedUnit = placeUnitNearTile(city.location, militaryUnit.name) ?: return
@@ -652,6 +652,30 @@ class CivilizationInfo {
     }
 
     fun getAllyCiv() = allyCivName
+
+    fun getProtectorCivs() : List<CivilizationInfo> {
+        if(this.isMajorCiv()) return emptyList()
+        return diplomacy.values
+                .filter{!it.otherCiv().isDefeated() && it.diplomaticStatus == DiplomaticStatus.Protector}
+                .map{it->it.otherCiv()}
+    }
+
+    fun addProtectorCiv(otherCiv: CivilizationInfo) {
+        if(!this.isCityState() or !otherCiv.isMajorCiv() or otherCiv.isDefeated()) return
+        if(!knows(otherCiv) or isAtWarWith(otherCiv)) return //Exception
+
+        val diplomacy = getDiplomacyManager(otherCiv.civName)
+        diplomacy.diplomaticStatus = DiplomaticStatus.Protector
+    }
+
+    fun removeProtectorCiv(otherCiv: CivilizationInfo) {
+        if(!this.isCityState() or !otherCiv.isMajorCiv() or otherCiv.isDefeated()) return
+        if(!knows(otherCiv) or isAtWarWith(otherCiv)) return //Exception
+
+        val diplomacy = getDiplomacyManager(otherCiv.civName)
+        diplomacy.diplomaticStatus = DiplomaticStatus.Peace
+        diplomacy.influence -= 20
+    }
 
     fun updateAllyCivForCityState() {
         var newAllyName = ""

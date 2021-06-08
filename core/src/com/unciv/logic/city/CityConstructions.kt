@@ -126,7 +126,7 @@ class CityConstructions {
         val construction = getConstruction(constructionName)
         val cost = construction.getProductionCost(cityInfo.civInfo)
         val turnsToConstruction = turnsToConstruction(constructionName, useStoredProduction)
-        val currentProgress = getWorkDone(constructionName)
+        val currentProgress = if (useStoredProduction) getWorkDone(constructionName) else 0
         if (currentProgress == 0) return "\n$cost${Fonts.production} $turnsToConstruction${Fonts.turn}"
         else return "\n$currentProgress/$cost${Fonts.production}\n$turnsToConstruction${Fonts.turn}"
     }
@@ -347,7 +347,16 @@ class CityConstructions {
             cityInfo.civInfo.addNotification("[${construction.name}] has been built in [" + cityInfo.name + "]",
                     cityInfo.location, NotificationIcon.Construction, icon)
         }
-
+        if (construction is Building && "Triggers a global alert upon completion" in construction.uniques) {
+            for (otherCiv in cityInfo.civInfo.gameInfo.civilizations) {
+                // No need to notify ourself, since we already got the building notification anyway
+                if (otherCiv == cityInfo.civInfo) continue
+                val completingCivDescription =
+                    if (otherCiv.knows(cityInfo.civInfo)) "[${cityInfo.civInfo.civName}]" else "An unknown civilization"
+                otherCiv.addNotification("$completingCivDescription has completed [${construction.name}]!",
+                    NotificationIcon.Construction, buildingIcon)
+            }
+        }
     }
 
     fun addBuilding(buildingName: String) {

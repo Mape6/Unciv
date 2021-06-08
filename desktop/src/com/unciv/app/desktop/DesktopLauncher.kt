@@ -6,10 +6,14 @@ import club.minnced.discord.rpc.DiscordRichPresence
 import com.badlogic.gdx.Files
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication
 import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration
+import com.badlogic.gdx.files.FileHandle
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.tools.texturepacker.TexturePacker
+import com.unciv.JsonParser
 import com.unciv.UncivGame
 import com.unciv.UncivGameParameters
+import com.unciv.logic.GameSaver
+import com.unciv.models.metadata.GameSettings
 import com.unciv.models.translations.tr
 import com.unciv.ui.utils.Fonts
 import io.ktor.application.*
@@ -39,6 +43,11 @@ internal object DesktopLauncher {
         config.addIcon("ExtraImages/Icon.png", Files.FileType.Internal)
         config.title = "Unciv"
         config.useHDPI = true
+        if (FileHandle(GameSaver.settingsFileName).exists()) {
+            val settings = JsonParser().getFromJson(GameSettings::class.java, FileHandle(GameSaver.settingsFileName))
+            config.width = settings.windowState.width
+            config.height = settings.windowState.height
+        }
 
         val versionFromJar = DesktopLauncher.javaClass.`package`.specificationVersion ?: "Desktop"
 
@@ -57,6 +66,8 @@ internal object DesktopLauncher {
         LwjglApplication(game, config)
     }
 
+    // Work in Progress?
+    @Suppress("unused")
     private fun startMultiplayerServer() {
 //        val games = HashMap<String, GameSetupInfo>()
         val files = HashMap<String, String>()
@@ -115,7 +126,7 @@ internal object DesktopLauncher {
         // https://github.com/yairm210/UnCiv/issues/1340
 
         /**
-         * These should be as big as possible in order to accommodate ALL the images together in one bug file.
+         * These should be as big as possible in order to accommodate ALL the images together in one big file.
          * Why? Because the rendering function of the main screen renders all the images consecutively, and every time it needs to switch between textures,
          * this causes a delay, leading to horrible lag if there are enough switches.
          * The cost of this specific solution is that the entire game.png needs be be kept in-memory constantly.
@@ -163,14 +174,14 @@ internal object DesktopLauncher {
     private fun packImagesIfOutdated(settings: TexturePacker.Settings, input: String, output: String, packFileName: String) {
         fun File.listTree(): Sequence<File> = when {
             this.isFile -> sequenceOf(this)
-            this.isDirectory -> this.listFiles().asSequence().flatMap { it.listTree() }
+            this.isDirectory -> this.listFiles()!!.asSequence().flatMap { it.listTree() }
             else -> sequenceOf()
         }
 
         val atlasFile = File("$output${File.separator}$packFileName.atlas")
         if (atlasFile.exists() && File("$output${File.separator}$packFileName.png").exists()) {
             val atlasModTime = atlasFile.lastModified()
-            if (!File(input).listTree().any { it.extension in listOf("png", "jpg", "jpeg") && it.lastModified() > atlasModTime }) return
+            if (File(input).listTree().none { it.extension in listOf("png", "jpg", "jpeg") && it.lastModified() > atlasModTime }) return
         }
 
         TexturePacker.process(settings, input, output, packFileName)

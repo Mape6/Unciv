@@ -182,6 +182,7 @@ class DiplomacyManager() {
         var restingPoint = 0f
         for (unique in otherCiv().getMatchingUniques("Resting point for Influence with City-States is increased by []"))
             restingPoint += unique.params[0].toInt()
+        if(diplomaticStatus == DiplomaticStatus.Protector) restingPoint += 5
         return restingPoint
     }
 
@@ -391,12 +392,13 @@ class DiplomacyManager() {
                         if (!otherCivDiplomacy().hasFlag(DiplomacyFlags.ResearchAgreement))
                             sciencefromResearchAgreement()
                     }
+                    // This is confusingly named - in fact, the civ that has the flag set is the MAJOR civ
                     DiplomacyFlags.ProvideMilitaryUnit.name -> {
-                        // Do not unset the flag
+                        // Do not unset the flag - they may return soon, and we'll continue from that point on
                         if (civInfo.cities.isEmpty() || otherCiv().cities.isEmpty())
                             continue@loop
                         else
-                            civInfo.giftMilitaryUnitTo(otherCiv())
+                            civInfo.gainMilitaryUnitFromCityState(otherCiv())
                     }
                     DiplomacyFlags.AgreedToNotSettleNearUs.name -> {
                         addModifier(DiplomaticModifiers.FulfilledPromiseToNotSettleCitiesNearUs, 10f)
@@ -542,6 +544,16 @@ class DiplomacyManager() {
                 if (thirdCiv.isCityState() && thirdCiv.getAllyCiv() == otherCiv.civName
                         && thirdCiv.knows(civInfo)
                         && thirdCiv.getDiplomacyManager(civInfo).canDeclareWar()) {
+                    thirdCiv.getDiplomacyManager(civInfo).declareWar()
+                }
+            }
+        }
+
+        if (otherCiv.isCityState())
+        {
+            for (thirdCiv in otherCiv.getProtectorCivs()) {
+                if (thirdCiv.knows(civInfo)
+                    && thirdCiv.getDiplomacyManager(civInfo).canDeclareWar()) {
                     thirdCiv.getDiplomacyManager(civInfo).declareWar()
                 }
             }
