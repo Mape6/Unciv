@@ -47,6 +47,7 @@ object UnitActions {
             )
         }
 
+        addSwapAction(unit, actionList, worldScreen)
         addExplorationActions(unit, actionList)
         addPromoteAction(unit, actionList)
         addUnitUpgradeAction(unit, actionList)
@@ -64,6 +65,27 @@ object UnitActions {
         return actionList
     }
 
+    private fun addSwapAction(unit: MapUnit, actionList: ArrayList<UnitAction>, worldScreen: WorldScreen) {
+        // Air units cannot swap
+        if (unit.type.isAirUnit()) return
+        // Disable unit swapping if multiple units are selected. It would make little sense.
+        // In principle, the unit swapping mode /will/ function with multiselect: it will simply
+        // only consider the first selected unit, and ignore the other selections. However, it does
+        // have the visual bug that the tile overlays for the eligible swap locations are drawn for
+        // /all/ selected units instead of only the first one. This could be fixed, but again,
+        // swapping makes little sense for multiselect anyway.
+        if (worldScreen.bottomUnitTable.selectedUnits.count() > 1) return
+        // Only show the swap action if there is at least one possible swap movement
+        if (unit.movement.getUnitSwappableTiles().none()) return
+        actionList += UnitAction(
+            type = UnitActionType.SwapUnits,
+            isCurrentAction = worldScreen.bottomUnitTable.selectedUnitIsSwapping,
+            action = {
+                worldScreen.bottomUnitTable.selectedUnitIsSwapping = !worldScreen.bottomUnitTable.selectedUnitIsSwapping
+                worldScreen.shouldUpdate = true
+            }
+        )
+    }
 
     private fun addDisbandAction(actionList: ArrayList<UnitAction>, unit: MapUnit, worldScreen: WorldScreen) {
         actionList += UnitAction(type = UnitActionType.DisbandUnit, action = {
@@ -235,7 +257,7 @@ object UnitActions {
                 title = "Upgrade to [${upgradedUnit.name}] ([$goldCostOfUpgrade] gold)",
                 uncivSound = UncivSound.Upgrade,
                 action = {
-                    unit.civInfo.gold -= goldCostOfUpgrade
+                    unit.civInfo.addGold(-goldCostOfUpgrade)
                     val unitTile = unit.getTile()
                     unit.destroy()
                     val newunit = unit.civInfo.placeUnitNearTile(unitTile.position, upgradedUnit.name)!!
@@ -334,7 +356,7 @@ object UnitActions {
                             var goldEarned = ((350 + 50 * unit.civInfo.getEraNumber()) * unit.civInfo.gameInfo.gameParameters.gameSpeed.modifier).toInt()
                             if (unit.civInfo.hasUnique("Double gold from Great Merchant trade missions"))
                                 goldEarned *= 2
-                            unit.civInfo.gold += goldEarned
+                            unit.civInfo.addGold(goldEarned)
                             tile.owningCity!!.civInfo.getDiplomacyManager(unit.civInfo).influence += influenceEarned
                             unit.civInfo.addNotification("Your trade mission to [${tile.owningCity!!.civInfo}] has earned you [${goldEarned}] gold and [$influenceEarned] influence!",
                                     tile.owningCity!!.civInfo.civName, NotificationIcon.Gold, NotificationIcon.Culture)
@@ -428,7 +450,7 @@ object UnitActions {
         val cityWithMausoleum = civInfo.cities.firstOrNull { it.containsBuildingUnique(uniqueText) }
                 ?: return
         val goldEarned = (100 * civInfo.gameInfo.gameParameters.gameSpeed.modifier).toInt()
-        civInfo.gold += goldEarned
+        civInfo.addGold(goldEarned)
 
         val mausoleum = cityWithMausoleum.cityConstructions.getBuiltBuildings().first { it.uniques.contains(uniqueText) }
         civInfo.addNotification("[${mausoleum.name}] has provided [$goldEarned] Gold!", cityWithMausoleum.location, NotificationIcon.Gold)

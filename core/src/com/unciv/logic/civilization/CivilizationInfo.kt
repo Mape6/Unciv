@@ -70,7 +70,9 @@ class CivilizationInfo {
 
     /** Used in online multiplayer for human players */
     var playerId = ""
+    /** The Civ's gold reserves. Public get, private set - please use [addGold] method to modify. */
     var gold = 0
+        private set
     var civName = ""
     var tech = TechManager()
     var policies = PolicyManager()
@@ -523,7 +525,7 @@ class CivilizationInfo {
             }
         }
 
-        gold += nextTurnStats.gold.toInt()
+        addGold( nextTurnStats.gold.toInt() )
 
         if (cities.isNotEmpty() && gameInfo.ruleSet.technologies.isNotEmpty())
             tech.endTurn(nextTurnStats.science.toInt())
@@ -541,6 +543,18 @@ class CivilizationInfo {
         diplomacy.values.toList().forEach { it.nextTurn() } // we copy the diplomacy values so if it changes in-loop we won't crash
         updateAllyCivForCityState()
         updateHasActiveGreatWall()
+    }
+
+    /** Modify gold by a given amount making sure it does neither overflow nor underflow.
+     * @param delta the amount to add (can be negative) 
+     */
+    fun addGold(delta: Int) {
+        // not using Long.coerceIn - this stays in 32 bits
+        gold = when {
+            delta > 0 && gold > Int.MAX_VALUE - delta -> Int.MAX_VALUE
+            delta < 0 && gold < Int.MIN_VALUE - delta -> Int.MIN_VALUE
+            else -> gold + delta
+        }
     }
 
     fun getGreatPersonPointsForNextTurn(): Stats {
@@ -619,7 +633,8 @@ class CivilizationInfo {
 
     fun giveGoldGift(cityState: CivilizationInfo, giftAmount: Int) {
         if (!cityState.isCityState()) throw Exception("You can only gain influence with City-States!")
-        gold -= giftAmount
+        addGold(-giftAmount)
+        cityState.addGold(giftAmount)
         cityState.getDiplomacyManager(this).influence += influenceGainedByGift(cityState, giftAmount)
         cityState.updateAllyCivForCityState()
         updateStatsForNextTurn()
@@ -656,8 +671,8 @@ class CivilizationInfo {
     fun getProtectorCivs() : List<CivilizationInfo> {
         if(this.isMajorCiv()) return emptyList()
         return diplomacy.values
-                .filter{!it.otherCiv().isDefeated() && it.diplomaticStatus == DiplomaticStatus.Protector}
-                .map{it->it.otherCiv()}
+                .filter{ !it.otherCiv().isDefeated() && it.diplomaticStatus == DiplomaticStatus.Protector }
+                .map{ it.otherCiv() }
     }
 
     fun addProtectorCiv(otherCiv: CivilizationInfo) {
