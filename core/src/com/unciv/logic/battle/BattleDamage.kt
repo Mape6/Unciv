@@ -1,6 +1,5 @@
 package com.unciv.logic.battle
 
-import com.unciv.logic.map.MapUnit
 import com.unciv.logic.map.TileInfo
 import com.unciv.models.Counter
 import com.unciv.models.ruleset.unit.UnitType
@@ -16,39 +15,11 @@ class BattleDamageModifier(val vs:String, val modificationAmount:Float){
 
 object BattleDamage {
 
-    const val BONUS_VS_UNIT_TYPE = """(Bonus|Penalty) vs (.*) (\d*)%"""
-
-    // This should be deprecated and converted to "+[]% Strength vs []", "-[]% Strength vs []"
-    private fun getBattleDamageModifiersOfUnit(unit: MapUnit): MutableList<BattleDamageModifier> {
-        val modifiers = mutableListOf<BattleDamageModifier>()
-        for (ability in unit.getUniques()) {
-            // This beut allows us to have generic unit uniques: "Bonus vs City 75%", "Penatly vs Mounted 25%" etc.
-            val regexResult = Regex(BONUS_VS_UNIT_TYPE).matchEntire(ability.text)
-            if (regexResult == null) continue
-            val vs = regexResult.groups[2]!!.value
-            val modificationAmount = regexResult.groups[3]!!.value.toFloat()
-            if (regexResult.groups[1]!!.value == "Bonus")
-                modifiers.add(BattleDamageModifier(vs, modificationAmount))
-            else
-                modifiers.add(BattleDamageModifier(vs, -modificationAmount))
-        }
-        return modifiers
-    }
-
-
     private fun getGeneralModifiers(combatant: ICombatant, enemy: ICombatant): Counter<String> {
         val modifiers = Counter<String>()
-        fun addToModifiers(BDM: BattleDamageModifier) =
-            modifiers.add(BDM.getText(), (BDM.modificationAmount).toInt())
 
         val civInfo = combatant.getCivInfo()
         if (combatant is MapUnitCombatant) {
-            for (BDM in getBattleDamageModifiersOfUnit(combatant.unit)) {
-                if (enemy.matchesCategory(BDM.vs)) {
-                    addToModifiers(BDM)
-                }
-            }
-
             for (unique in combatant.unit.getMatchingUniques("+[]% Strength vs []")) {
                 if (enemy.matchesCategory(unique.params[1]))
                     modifiers.add("vs [${unique.params[1]}]", unique.params[0].toInt())
@@ -75,12 +46,17 @@ object BattleDamage {
                 }
             }
 
-            if (civInfo.hasUnique("+15% combat strength for melee units which have another military unit in an adjacent tile")
-                && combatant.isMelee()
-                && combatant.getTile().neighbors.flatMap { it.getUnits() }
-                    .any { it.civInfo == civInfo && !it.type.isCivilian() && !it.type.isAirUnit() }
-            )
-                modifiers["Discipline"] = 15
+            var adjacentUnitBonus = 0
+            for (unique in civInfo.getMatchingUniques("+[]% Strength for [] units which have another [] unit in an adjacent tile")) {
+                if (combatant.matchesCategory(unique.params[1])
+                    && combatant.getTile().neighbors.flatMap { it.getUnits() }
+                    .any { it.civInfo == civInfo && it.matchesFilter(unique.params[2]) } 
+                ) {
+                    adjacentUnitBonus += unique.params[0].toInt()
+                }
+            }
+            if (adjacentUnitBonus != 0)
+                modifiers["Adjacent unit"] = adjacentUnitBonus
 
             val civResources = civInfo.getCivResourcesByName()
             for (resource in combatant.unit.baseUnit.getResourceRequirements().keys)
@@ -103,14 +79,24 @@ object BattleDamage {
                     .isCityState() && civInfo.hasUnique("+30% Strength when fighting City-State units and cities")
             )
                 modifiers["vs [City-States]"] = 30
+            
+            // Deprecated since 3.14.17
+            if (civInfo.hasUnique("+15% combat strength for melee units which have another military unit in an adjacent tile")
+                && combatant.isMelee()
+                && combatant.getTile().neighbors.flatMap { it.getUnits() }
+                    .any { it.civInfo == civInfo && !it.type.isCivilian() && !it.type.isAirUnit() }
+            )
+                modifiers["Discipline"] = 15
 
         }
 
         if (enemy.getCivInfo().isBarbarian()) {
             modifiers["Difficulty"] =
                 (civInfo.gameInfo.getDifficulty().barbarianBonus * 100).toInt()
-            if (civInfo.hasUnique("+25% bonus vs Barbarians"))
-                modifiers["vs Barbarians"] = 25
+            // Deprecated since 3.14.17
+            if (civInfo.hasUnique("+25% bonus vs Barbarians")) {
+                modifiers["vs Barbarians (deprecated)"] = 25
+            }
         }
 
         return modifiers
@@ -166,11 +152,12 @@ object BattleDamage {
             )
                 modifiers["Statue of Zeus"] = 15
         } else if (attacker is CityCombatant) {
-            if (attacker.getCivInfo()
-                    .hasUnique("+50% attacking strength for cities with garrisoned units")
-                && attacker.city.getCenterTile().militaryUnit != null
-            )
-                modifiers["Oligarchy"] = 50
+            if (attacker.city.getCenterTile().militaryUnit != null) {
+                val garrisonBonus = attacker.getCivInfo().getMatchingUniques("+[]% attacking strength for cities with garrisoned units")
+                    .sumBy { it.params[0].toInt() }
+                if (garrisonBonus != 0)
+                    modifiers["Garrisoned unit"] = garrisonBonus
+            }
         }
 
         return modifiers
