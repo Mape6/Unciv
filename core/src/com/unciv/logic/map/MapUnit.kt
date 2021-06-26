@@ -347,6 +347,7 @@ class MapUnit {
         if (type.isWaterUnit()) return false
         if (type.isCivilian()) return false
         if (type.isAirUnit()) return false
+        if (type.isMissile()) return false
         if (isEmbarked()) return false
         if (hasUnique("No defensive terrain bonus")) return false
         if (isFortified()) return false
@@ -627,13 +628,13 @@ class MapUnit {
     fun putInTile(tile: TileInfo) {
         when {
             !movement.canMoveTo(tile) -> throw Exception("I can't go there!")
-            type.isAirUnit() -> tile.airUnits.add(this)
+            type.isAirUnit() || type.isMissile() -> tile.airUnits.add(this)
             type.isCivilian() -> tile.civilianUnit = this
             else -> tile.militaryUnit = this
         }
         // this check is here in order to not load the fresh built unit into carrier right after the build
         isTransported = !tile.isCityCenter() &&
-                type.isAirUnit() // not moving civilians
+                (type.isAirUnit() || type.isMissile()) // not moving civilians
         moveThroughTile(tile)
     }
 
@@ -699,8 +700,7 @@ class MapUnit {
 
         if (civInfo.cities.isNotEmpty()) actions.add {
             val city = civInfo.cities.random(tileBasedRandom)
-            city.population.population++
-            city.population.autoAssignPopulation()
+            city.population.addPopulation(1)
             val locations = LocationAction(listOf(tile.position, city.location))
             civInfo.addNotification(
                 "We have found survivors in the ruins - population added to [" + city.name + "]",

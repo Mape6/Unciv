@@ -47,7 +47,7 @@ class CityInfoConquestFunctions(val city: CityInfo){
             moveToCiv(conqueringCiv)
             Battle.destroyIfDefeated(oldCiv, conqueringCiv)
 
-            if (population.population > 1) population.population -= 1 + population.population / 4 // so from 2-4 population, remove 1, from 5-8, remove 2, etc.
+            if (population.population > 1) population.addPopulation(-1 - population.population / 4) // so from 2-4 population, remove 1, from 5-8, remove 2, etc.
             reassignPopulation()
 
             if (reconqueredCityWhileStillInResistance || foundingCiv == conqueringCiv.civName)
@@ -127,6 +127,8 @@ class CityInfoConquestFunctions(val city: CityInfo){
             cityStats.update()
 
             // Move units out of the city when liberated
+            for (unit in getCenterTile().getUnits())
+                unit.movement.teleportToClosestMoveableTile()
             for (unit in getTiles().flatMap { it.getUnits() }.toList())
                 if (!unit.movement.canPassThrough(unit.currentTile))
                     unit.movement.teleportToClosestMoveableTile()
